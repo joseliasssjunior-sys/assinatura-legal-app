@@ -30,9 +30,8 @@
     <pre id="resultado-json"></pre>
 
     <script>
-        // --- ENDEREÇO DO SERVIDOR (MUDAR QUANDO PUBLICAR) ---
-        // const URL_SERVIDOR = "http://localhost:3000";
-        const URL_SERVIDOR ="https://meu-assinador-legal.onrender.com"; // <-- MUDAR PARA SEU LINK DO RENDER
+        // --- ENDEREÇO DO SERVIDOR (V3.2 - ATUALIZADO) ---
+        const URL_SERVIDOR = "https://meu-assinador-legal.onrender.com";
 
         document.getElementById("btn-validar").onclick = async function() {
             const chave = document.getElementById("chave-validacao").value.trim();
@@ -50,13 +49,13 @@
             }
 
             try {
+                // Usa a URL_SERVIDOR correta
                 const resp = await fetch(`${URL_SERVIDOR}/validar/${encodeURIComponent(chave)}`);
                 const dados = await resp.json();
 
                 if (dados.ok) {
                     msgEl.textContent = "Assinatura encontrada. Dados resumidos abaixo.";
                     msgEl.className = "ok";
-                    // Formata o JSON para exibição bonita
                     jsonEl.textContent = JSON.stringify(dados.registro, null, 2);
                 } else {
                     msgEl.textContent = dados.mensagem || "Assinatura não encontrada.";
