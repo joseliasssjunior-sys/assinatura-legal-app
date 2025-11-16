@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
-  <title>Assinatura Eletrônica de Procuração (V3.1)</title>
+  <title>Assinatura Eletrônica de Procuração (V3.2)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -29,7 +29,7 @@
 </head>
 <body>
 
-<h1>Assinatura Eletrônica de Procuração (V3.1)</h1>
+<h1>Assinatura Eletrônica de Procuração (V3.2)</h1>
 
 <p class="small">
   Esta página gera uma procuração com assinatura eletrônica, incluindo dados do cliente,
@@ -103,9 +103,8 @@ Declaro que li a procuração e concordo plenamente com seu conteúdo, autorizan
 
 
 <script>
-  // --- ENDEREÇO DO SERVIDOR (MUDAR QUANDO PUBLICAR) ---
-  // const URL_SERVIDOR = "http://localhost:3000";
-  const URL_SERVIDOR = const URL_SERVIDOR = "https://meu-assinador-legal.onrender.com";// <-- MUDAR PARA SEU LINK DO RENDER
+  // --- ENDEREÇO DO SERVIDOR (V3.2 - ATUALIZADO) ---
+  const URL_SERVIDOR = "https://meu-assinador-legal.onrender.com"; 
   
   // ---------------------- GERAR ID ----------------------
   function gerarIdAssinatura(hash) {
@@ -119,14 +118,16 @@ Declaro que li a procuração e concordo plenamente com seu conteúdo, autorizan
 
   // ---------------------- DATA E HORA ----------------------
   function atualizarDataHora() {
-    document.getElementById("data-hora").value = new Date().toLocaleString("pt-BR", { timeZone: 'America/Sao_Paulo' });
+    try {
+      document.getElementById("data-hora").value = new Date().toLocaleString("pt-BR", { timeZone: 'America/Sao_Paulo' });
+    } catch(e) {
+      document.getElementById("data-hora").value = new Date().toLocaleString("pt-BR");
+    }
   }
-  atualizarDataHora();
-  setInterval(atualizarDataHora, 1000);
-
+  
   // ---------------------- GEO ----------------------
   let ultimaGeo = null;
-  document.getElementById("btn-geo").onclick = function() {
+  function obterGeo() {
     const campo = document.getElementById("geo");
     campo.value = "Obtendo localização...";
     if (!navigator.geolocation) {
@@ -145,55 +146,58 @@ Declaro que li a procuração e concordo plenamente com seu conteúdo, autorizan
           "Longitude: " + ultimaGeo.longitude + "\n" +
           "Precisão: " + ultimaGeo.precisao_metros + " m";
       },
-      err => { campo.value = "Erro: " + err.message; }
+      err => { 
+        campo.value = "Erro ao obter localização: " + err.message; 
+        console.error("Erro GEO:", err);
+      }
     );
   };
 
   // ---------------------- ASSINATURA (CANVAS) ----------------------
-  const canvas = document.getElementById("signature-pad");
-  const ctx = canvas.getContext("2d");
+  let canvas, ctx, desenhando = false, ultimo = {x:0,y:0};
+  
   function ajustarCanvas() {
+    if (!canvas) return; 
     canvas.width = canvas.clientWidth;
     canvas.height = canvas.clientHeight;
     ctx.lineWidth = 2;
     ctx.lineCap = "round";
   }
-  window.onresize = ajustarCanvas;
-  ajustarCanvas();
-  let desenhando = false, ultimo = {x:0,y:0};
+  
   function posEvt(e){
     const r = canvas.getBoundingClientRect();
     if(e.touches) return {x:e.touches[0].clientX-r.left,y:e.touches[0].clientY-r.top};
     return {x:e.clientX-r.left,y:e.clientY-r.top};
   }
-  canvas.onmousedown = e => { desenhando = true; ultimo = posEvt(e); };
-  canvas.onmousemove = e => {
+  
+  function iniciarDesenho(e) { 
+    desenhando = true; 
+    ultimo = posEvt(e); 
+  }
+  
+  function desenhar(e) {
     if(!desenhando) return;
+    if (e.touches) e.preventDefault(); 
+    
     const p = posEvt(e);
     ctx.beginPath();
     ctx.moveTo(ultimo.x,ultimo.y);
     ctx.lineTo(p.x,p.y);
     ctx.stroke();
     ultimo = p;
-  };
-  window.onmouseup = () => desenhando=false;
-  canvas.ontouchstart = e => { desenhando=true; ultimo=posEvt(e); };
-  canvas.ontouchmove = e => {
-    if(!desenhando) return;
-    e.preventDefault();
-    const p = posEvt(e);
-    ctx.beginPath();
-    ctx.moveTo(ultimo.x,ultimo.y);
-    ctx.lineTo(p.x,p.y);
-    ctx.stroke();
-    ultimo=p;
-  };
-  canvas.ontouchend = ()=>desenhando=false;
-  document.getElementById("limpar-assinatura").onclick = ()=>ctx.clearRect(0,0,canvas.width,canvas.height);
+  }
+  
+  function pararDesenho() { 
+    desenhando = false; 
+  }
+  
+  function limparAssinatura() {
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+  }
 
   // ---------------------- FOTO ----------------------
   let fotoSelecionada=null;
-  document.getElementById("input-foto").onchange=function(e){
+  function préviaFoto(e){
     const file=e.target.files[0];
     const prev=document.getElementById("foto-preview");
     if(!file){ fotoSelecionada=null; prev.style.display="none"; return; }
@@ -204,15 +208,12 @@ Declaro que li a procuração e concordo plenamente com seu conteúdo, autorizan
 
   // ---------------------- MONTAR DADOS (Atualizado V3.1) ----------------------
   function montarDados(){
-    // 1. Pega os textos
     const procMolde = document.getElementById("texto-procuracao").value.trim();
     const nome = document.getElementById("nome-cliente").value.trim();
     const cpf = document.getElementById("cpf-cliente").value.trim();
     const email = document.getElementById("email-cliente").value.trim();
     const doc = document.getElementById("doc-id-cliente").value.trim();
-    // ### CORREÇÃO 2: Lendo o novo campo de endereço ###
     const endereco = document.getElementById("endereco-cliente").value.trim();
-    
     const confirm = document.getElementById("texto-confirmacao").value.trim();
     const ok = document.getElementById("checkbox-concordo").checked;
     const dataHora = document.getElementById("data-hora").value;
@@ -223,25 +224,22 @@ Declaro que li a procuração e concordo plenamente com seu conteúdo, autorizan
 
     if(erros.length) return {erro:erros.join("\n")};
     
-    // --- ### CORREÇÃO 3: A MÁGICA DA SUBSTITUIÇÃO ### ---
-    // Antes de salvar, vamos fazer o "Localizar e Substituir"
-    
     let textoProcuracaoFinal = procMolde
-      .replace("(NOME DO CLIENTE)", nome)
-      .replace("(CPF)", cpf)
-      .replace("(endereço)", endereco); // Substitui o primeiro (endereço)
+      .replace(/\(NOME DO CLIENTE\)/g, nome)
+      .replace(/\(CPF\)/g, cpf)
+      .replace(/\(ENDERECO\)/g, endereco);
       
-    // (Adicione seus dados fixos aqui se quiser)
-    // .replace("(SEU NOME)", "Dr. Joselias Soares Sales Junior")
-    // .replace("(OAB/(UF) (número))", "OAB/MA 20.127")
+    // (Adicione seus dados fixos aqui)
+    // .replace(/\(SEU NOME\)/g, "Dr. Joselias Soares Sales Junior")
+    // .replace(/\(OAB\/\(UF\) \(número\)\)/g, "OAB/MA 20.127")
 
     return {
-      textoProcuracao: textoProcuracaoFinal, // Enviamos o texto JÁ PREENCHIDO!
+      textoProcuracao: textoProcuracaoFinal,
       nomeCliente: nome,
       cpfCliente: cpf,
       emailCliente: email,
       docIdCliente: doc,
-      enderecoCliente: endereco, // Adicionamos para salvar no JSON
+      enderecoCliente: endereco,
       textoConfirmacao: confirm,
       dataHora: dataHora,
       geo: ultimaGeo
@@ -249,8 +247,7 @@ Declaro que li a procuração e concordo plenamente com seu conteúdo, autorizan
   }
 
   // ---------------------- GERAR PDF / HASH / ENVIAR (Atualizado V3.1) ----------------------
-  document.getElementById("btn-gerar-pdf-enviar").onclick = async function(){
-
+  async function gerarPDFEnviar(){
     const msg=document.getElementById("mensagens");
     const hashBox=document.getElementById("hash-gerado");
     msg.textContent=""; msg.className="";
@@ -282,7 +279,6 @@ Declaro que li a procuração e concordo plenamente com seu conteúdo, autorizan
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF({ unit:"mm", format:"a4" });
 
-    // --- ### CORREÇÃO 4: Lógica de Layout do PDF ### ---
     doc.setFontSize(14);
     let y = 15;
     doc.text("PROCURAÇÃO - ASSINATURA ELETRÔNICA", 105, y, { align: 'center' });
@@ -290,7 +286,7 @@ Declaro que li a procuração e concordo plenamente com seu conteúdo, autorizan
 
     doc.setFontSize(10);
     const margemEsquerda = 15;
-    const larguraLinha = 180; // (210mm da A4 - 30mm de margem total)
+    const larguraLinha = 180;
     
     function wrap(text){ 
         if (!text) return [""];
@@ -306,8 +302,7 @@ Declaro que li a procuração e concordo plenamente com seu conteúdo, autorizan
         doc.setFont(undefined, 'normal');
         const linhas = wrap(texto);
         doc.text(linhas, margemEsquerda, y_pos);
-        // Retorna a nova posição Y (5mm para cada linha)
-        return y_pos + (linhas.length * 5) + 2; // +2mm de espaço extra
+        return y_pos + (linhas.length * 5) + 2;
     }
 
     y = blocoDeTexto("Data e hora:", dados.dataHora, y);
@@ -318,23 +313,15 @@ Declaro que li a procuração e concordo plenamente com seu conteúdo, autorizan
     } else {
         y = blocoDeTexto("Localização (aprox.):", "Não capturada.", y);
     }
-    y += 5; // Espaço extra
+    y += 5;
     
-    // --- O TEXTO DA PROCURAÇÃO (JÁ PREENCHIDO) ---
     y = blocoDeTexto(null, dados.textoProcuracao, y);
     y += 5; 
 
-    // --- DECLARAÇÃO ---
     y = blocoDeTexto(null, dados.textoConfirmacao, y);
     y += 15; 
-
-    // --- ASSINATURA E FOTO ---
     
-    // Verifica se precisa de uma nova página
-    if (y > 220) { 
-        doc.addPage(); 
-        y = 15;
-    }
+    if (y > 220) { doc.addPage(); y = 15; }
 
     doc.setFont(undefined, 'bold');
     doc.text("Assinatura desenhada:", margemEsquerda, y);
@@ -345,24 +332,20 @@ Declaro que li a procuração e concordo plenamente com seu conteúdo, autorizan
     if(fotoSelecionada){
       doc.text("Foto anexada:", margemEsquerda, y);
       y += 5;
-      // Verifica se a foto cabe na página
       if (y > 230) { doc.addPage(); y = 15; }
       doc.addImage(fotoSelecionada,"JPEG", margemEsquerda, y, 50, 50);
     } else {
       doc.text("Nenhuma foto anexada.", margemEsquerda, y);
     }
 
-    // Adiciona o Hash no rodapé da última página
     doc.setFontSize(8);
     doc.text(`Hash SHA-256 do ato: ${hash}`, margemEsquerda, 280);
 
-    // (O resto do código de enviar para o servidor está perfeito)
     const pdfBase64Uri = doc.output("datauristring");
     const pdfBase64 = pdfBase64Uri.split(",")[1];
 
     msg.textContent="Enviando PDF ao servidor...";
     try{
-      // Usamos a variável URL_SERVIDOR que definimos no topo
       const resp = await fetch(`${URL_SERVIDOR}/enviar-email`,{
         method:"POST",
         headers:{ "Content-Type":"application/json" },
@@ -372,7 +355,7 @@ Declaro que li a procuração e concordo plenamente com seu conteúdo, autorizan
           emailCliente: dados.emailCliente,
           cpfCliente: dados.cpfCliente,
           docIdCliente: dados.docIdCliente,
-          enderecoCliente: dados.enderecoCliente, // Enviando o endereço
+          enderecoCliente: dados.enderecoCliente,
           hash,
           dataHora: dados.dataHora,
           geo: dados.geo,
@@ -395,6 +378,40 @@ Declaro que li a procuração e concordo plenamente com seu conteúdo, autorizan
 
     doc.save("procuracao_assinada.pdf");
   };
+  
+  // --- INICIAR TUDO QUANDO A PÁGINA CARREGAR ---
+  window.onload = function() {
+    // Ligar Data/Hora
+    atualizarDataHora();
+    setInterval(atualizarDataHora, 1000);
+    
+    // Ligar Botão GEO
+    document.getElementById("btn-geo").onclick = obterGeo;
+    
+    // Ligar Botão Limpar Assinatura
+    document.getElementById("limpar-assinatura").onclick = limparAssinatura;
+    
+    // Ligar Upload de Foto
+    document.getElementById("input-foto").onchange = préviaFoto;
+    
+    // Ligar Botão Principal
+    document.getElementById("btn-gerar-pdf-enviar").onclick = gerarPDFEnviar;
+    
+    // Ligar Canvas
+    canvas = document.getElementById("signature-pad");
+    ctx = canvas.getContext("2d");
+    ajustarCanvas();
+    window.onresize = ajustarCanvas;
+    
+    canvas.addEventListener("mousedown", iniciarDesenho);
+    canvas.addEventListener("mousemove", desenhar);
+    window.addEventListener("mouseup", pararDesenho);
+    
+    canvas.addEventListener("touchstart", iniciarDesenho);
+    canvas.addEventListener("touchmove", desenhar);
+    canvas.addEventListener("touchend", pararDesenho);
+  }
+
 </script>
 
 </body>
