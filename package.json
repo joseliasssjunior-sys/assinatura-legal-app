@@ -1,0 +1,20 @@
+{
+  "name": "servidor-assinatura-legal",
+  "version": "1.0.0",
+  "description": "Servidor para o sistema de assinatura avançada",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Seu Nome Aqui",
+  "license": "ISC",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.19.2",
+    "nodemailer": "^6.9.14"
+  },
+  "engines": {
+    "node": "18.x"
+  }
+}
