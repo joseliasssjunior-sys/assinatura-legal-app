@@ -1,0 +1,10 @@
+# Ignora a pasta de módulos (que o Render baixa sozinho)
+node_modules
+
+# Ignora o arquivo do banco de dados (IMPORTANTE PARA SEGURANÇA!)
+# Você não quer que seus dados de clientes fiquem públicos no GitHub
+assinaturas.json
+
+# Arquivos de log e sistema
+.DS_Store
+*.log
