@@ -54,30 +54,27 @@ function registrarAssinatura({ idAssinatura, hash, nomeCliente, emailCliente, da
 }
 
 // ---------------------------------------------
-// Configura transportador de e-mail
+// ### CORREÇÃO V1.3 - Configura transportador de e-mail ###
 // ---------------------------------------------
+// Em vez de "service: 'gmail'", vamos ser explícitos
+// para evitar o "ETIMEDOUT" (Timeout) do Render.
 const transporter = nodemailer.createTransport({
-    service: "gmail",
+    host: "smtp.gmail.com",     // O "endereço" exato do Gmail
+    port: 465,                  // A "porta" segura (SSL)
+    secure: true,               // Obrigatório usar SSL/TLS
     auth: {
-        user: EMAIL_USER,
-        pass: EMAIL_PASS
+        user: EMAIL_USER,       // (Lido do process.env)
+        pass: EMAIL_PASS        // (Lido do process.env)
     }
 });
 
 // ---------------------------------------------
-// ### ROTA NOVA V1.2 ###
 // Rota para "servir" (mostrar) os arquivos HTML
 // ---------------------------------------------
-
-// Quando alguém acessar a raiz (https://...)
 app.get("/", (req, res) => {
-    // Envie o arquivo da procuração
     res.sendFile(path.join(__dirname, "procuracao_assinatura.html"));
 });
-
-// Quando alguém acessar /validar (https://.../validar)
 app.get("/validar", (req, res) => {
-    // Envie o arquivo do validador
     res.sendFile(path.join(__dirname, "validar.html"));
 });
 
@@ -90,7 +87,6 @@ app.post("/enviar-email", async (req, res) => {
         const {
             pdfBase64, nomeCliente, emailCliente, hash, dataHora, geo,
             cpfCliente, docIdCliente, enderecoCliente, idAssinatura,
-            // (Pegando os dados extras do V3.4)
             nacionalidade, estadoCivil, profissao
         } = req.body;
 
@@ -119,6 +115,7 @@ Dados principais:
 - Hash SHA-256: ${hash}
 `;
 
+        // O "await" aqui é onde o erro de ETIMEDOUT aconteceu
         const info = await transporter.sendMail({
             from: `"Assinatura Digital" <${EMAIL_USER}>`,
             to: destinatarios.join(", "),
@@ -149,7 +146,8 @@ Dados principais:
         res.json({ ok: true, messageId: info.messageId, registroSalvo: registro });
 
     } catch (err) {
-        console.error(err);
+        // Agora, se der erro de novo, vamos ver no log
+        console.error("!!! ERRO NO /enviar-email !!!:", err);
         res.status(500).json({ ok: false, error: "Erro ao enviar ou registrar assinatura." });
     }
 });
@@ -175,7 +173,6 @@ app.get("/teste-email", async (req, res) => {
 
 // ---------------------------------------------
 // ROTA DE VALIDAÇÃO POR ID OU HASH
-// (Esta é a API que o seu /validar usa)
 // ---------------------------------------------
 app.get("/validar/:chave", (req, res) => {
     const chave = req.params.chave;
@@ -186,7 +183,7 @@ app.get("/validar/:chave", (req, res) => {
     );
 
     if (!registro) {
-        return res.status(404).json({
+        return res.status(4404).json({
             ok: false,
             mensagem: "Assinatura não encontrada para este ID ou hash."
         });
