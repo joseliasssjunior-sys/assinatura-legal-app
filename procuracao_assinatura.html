@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
-  <title>Assinatura Eletrônica de Procuração (V3.4)</title>
+  <title>Assinatura Eletrônica de Procuração (V3.5)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -15,7 +15,7 @@
     label { font-weight: bold; display: block; margin-top: 10px; }
     textarea, input, button { width: 100%; box-sizing: border-box; margin-top: 5px; }
     textarea { min-height: 80px; }
-    #texto-procuracao { min-height: 300px; font-family: monospace; } /* Aumentei a altura */
+    #texto-procuracao { min-height: 300px; font-family: monospace; }
     #signature-pad { border: 1px solid #000; width: 100%; height: 180px; touch-action: none; }
     #foto-preview { max-width: 100%; max-height: 200px; display: none; margin-top: 10px; }
     #hash-gerado { font-family: monospace; font-size: 0.9em; white-space: pre-wrap; background: #f4f4f4; padding: 8px; border: 1px solid #ccc; }
@@ -30,7 +30,7 @@
 </head>
 <body>
 
-<h1>Assinatura Eletrônica de Procuração (V3.4)</h1>
+<h1>Assinatura Eletrônica de Procuração (V3.5)</h1>
 
 <h2>Texto da Procuração</h2>
 <textarea id="texto-procuracao">
@@ -114,7 +114,7 @@ Declaro que li a procuração e concordo plenamente com seu conteúdo, autorizan
   // --- ENDEREÇO DO SERVIDOR (JÁ CORRIGIDO) ---
   const URL_SERVIDOR = "https://meu-assinador-legal.onrender.com"; 
   
-  // --- (Funções de ID, Data, Geo, Canvas, Foto... mantidas) ---
+  // (Funções de ID, Data, Geo, Canvas, Foto... mantidas)
   function gerarIdAssinatura(hash) {
     const d = new Date();
     const pad = n => String(n).padStart(2,"0");
@@ -194,15 +194,12 @@ Declaro que li a procuração e concordo plenamente com seu conteúdo, autorizan
     r.readAsDataURL(file);
   };
 
-  // ---------------------- MONTAR DADOS (Atualizado V3.4) ----------------------
+  // ---------------------- MONTAR DADOS (V3.4) ----------------------
   function montarDados(){
-    // 1. Pega os textos do molde e dos campos
     const procMolde = document.getElementById("texto-procuracao").value.trim();
     const confirm = document.getElementById("texto-confirmacao").value.trim();
     const ok = document.getElementById("checkbox-concordo").checked;
     const dataHora = document.getElementById("data-hora").value;
-
-    // 2. Pega os dados do cliente
     const nome = document.getElementById("nome-cliente").value.trim();
     const cpf = document.getElementById("cpf-cliente").value.trim();
     const email = document.getElementById("email-cliente").value.trim();
@@ -212,20 +209,15 @@ Declaro que li a procuração e concordo plenamente com seu conteúdo, autorizan
     const estadoCivil = document.getElementById("estado-civil-cliente").value.trim();
     const profissao = document.getElementById("profissao-cliente").value.trim();
     
-    // 3. Validação (Checagem de erros)
     const erros=[];
     if(!nome || !cpf || !endereco || !nacionalidade || !estadoCivil || !profissao || !rg) {
         erros.push("Todos os campos de 'Dados do Cliente' são obrigatórios.");
     }
     if(!ok) erros.push("É necessário marcar a concordância.");
-
     if(erros.length) return {erro:erros.join("\n")};
     
-    // --- ### A MÁGICA DA SUBSTITUIÇÃO (V3.4) ### ---
-    // Agora substituímos todas as 7 etiquetas do cliente
-    
     let textoProcuracaoFinal = procMolde
-      .replace(/\(NOME DO CLIENTE\)/g, nome.toUpperCase()) // Coloca o nome em maiúsculo
+      .replace(/\(NOME DO CLIENTE\)/g, nome.toUpperCase())
       .replace(/\(CPF\)/g, cpf)
       .replace(/\(ENDERECO\)/g, endereco)
       .replace(/\(NACIONALIDADE\)/g, nacionalidade)
@@ -234,20 +226,22 @@ Declaro que li a procuração e concordo plenamente com seu conteúdo, autorizan
       .replace(/\(RG\)/g, rg);
 
     return {
-      textoProcuracao: textoProcuracaoFinal, // O texto JÁ PREENCHIDO
+      textoProcuracao: textoProcuracaoFinal,
       nomeCliente: nome,
       cpfCliente: cpf,
       emailCliente: email,
-      docIdCliente: rg, // Atualizado para RG
+      docIdCliente: rg,
       enderecoCliente: endereco,
+      nacionalidade: nacionalidade, // Enviando dados extras
+      estadoCivil: estadoCivil,
+      profissao: profissao,
       textoConfirmacao: confirm,
       dataHora: dataHora,
       geo: ultimaGeo
-      // (Envia todos os dados brutos para o JSON de qualquer forma)
     };
   }
 
-  // ---------------------- GERAR PDF / HASH / ENVIAR (Atualizado V3.4) ----------------------
+  // ---------------------- GERAR PDF / HASH / ENVIAR (Atualizado V3.5) ----------------------
   async function gerarPDFEnviar(){
     const msg=document.getElementById("mensagens");
     const hashBox=document.getElementById("hash-gerado");
@@ -284,14 +278,11 @@ Declaro que li a procuração e concordo plenamente com seu conteúdo, autorizan
     let y = 15;
     doc.text("PROCURAÇÃO - ASSINATURA ELETRÔNICA", 105, y, { align: 'center' });
     y += 10;
-
     doc.setFontSize(10);
     const margemEsquerda = 15;
     const larguraLinha = 180;
-    
     function wrap(text){ 
         if (!text) return [""];
-        // Esta função agora também lida com as quebras de linha (\n) do seu molde
         const linhasDoMolde = text.split('\n');
         let linhasFinais = [];
         for (const linha of linhasDoMolde) {
@@ -299,7 +290,6 @@ Declaro que li a procuração e concordo plenamente com seu conteúdo, autorizan
         }
         return linhasFinais;
     }
-    
     function blocoDeTexto(titulo, texto, y_pos) {
         if (titulo) {
             doc.setFont(undefined, 'bold');
@@ -309,35 +299,26 @@ Declaro que li a procuração e concordo plenamente com seu conteúdo, autorizan
         doc.setFont(undefined, 'normal');
         const linhas = wrap(texto);
         doc.text(linhas, margemEsquerda, y_pos);
-        // Retorna a nova posição Y (5mm para cada linha)
-        // Aumentei o espaçamento para 6mm para melhor leitura
         return y_pos + (linhas.length * 6) + 2;
     }
-
     y = blocoDeTexto("Data e hora:", dados.dataHora, y);
     y = blocoDeTexto("ID da assinatura:", idAssinatura, y);
-    
     if(dados.geo) {
         y = blocoDeTexto("Localização (aprox.):", `Lat: ${dados.geo.latitude}, Long: ${dados.geo.longitude} (Precisão: ${dados.geo.precisao_metros}m)`, y);
     } else {
         y = blocoDeTexto("Localização (aprox.):", "Não capturada.", y);
     }
     y += 5;
-    
     y = blocoDeTexto(null, dados.textoProcuracao, y);
     y += 5; 
-
     y = blocoDeTexto(null, dados.textoConfirmacao, y);
     y += 15; 
-    
     if (y > 220) { doc.addPage(); y = 15; }
-
     doc.setFont(undefined, 'bold');
     doc.text("Assinatura desenhada:", margemEsquerda, y);
     y += 5;
     doc.addImage(assinaturaBase64,"PNG", margemEsquerda, y, 80, 30);
     y += 40;
-
     if(fotoSelecionada){
       doc.text("Foto anexada:", margemEsquerda, y);
       y += 5;
@@ -346,18 +327,29 @@ Declaro que li a procuração e concordo plenamente com seu conteúdo, autorizan
     } else {
       doc.text("Nenhuma foto anexada.", margemEsquerda, y);
     }
-
     doc.setFontSize(8);
     doc.text(`Hash SHA-256 do ato: ${hash}`, margemEsquerda, 280);
 
     const pdfBase64Uri = doc.output("datauristring");
     const pdfBase64 = pdfBase64Uri.split(",")[1];
 
-    msg.textContent="Enviando PDF ao servidor...";
+    // --- ### CORREÇÃO V3.5: "O SUPER PACIENTE" ### ---
+    msg.textContent="Enviando PDF ao servidor... (O servidor gratuito pode levar até 60s para 'acordar'. Por favor, aguarde...)";
+    
+    // 1. Criamos um "controlador" para o timeout
+    const controller = new AbortController();
+    // 2. Criamos o "relógio" de 90 segundos
+    const timeoutId = setTimeout(() => {
+        console.log("Fetch timed out!");
+        controller.abort(); // "Desiste" da conexão
+    }, 90000); // 90 segundos de paciência
+    
     try{
       const resp = await fetch(`${URL_SERVIDOR}/enviar-email`,{
         method:"POST",
         headers:{ "Content-Type":"application/json" },
+        // 3. Adicionamos o "sinal" do controlador ao fetch
+        signal: controller.signal, 
         body:JSON.stringify({
           pdfBase64,
           nomeCliente: dados.nomeCliente,
@@ -365,16 +357,18 @@ Declaro que li a procuração e concordo plenamente com seu conteúdo, autorizan
           cpfCliente: dados.cpfCliente,
           docIdCliente: dados.docIdCliente,
           enderecoCliente: dados.enderecoCliente,
-          // (Todos os dados extras que o servidor pode querer)
-          nacionalidade: nacionalidade,
-          estadoCivil: estadoCivil,
-          profissao: profissao,
+          nacionalidade: dados.nacionalidade,
+          estadoCivil: dados.estadoCivil,
+          profissao: dados.profissao,
           hash,
           dataHora: dados.dataHora,
           geo: dados.geo,
           idAssinatura
         })
       });
+      
+      // 4. Se a resposta chegou, desliga o "relógio"
+      clearTimeout(timeoutId);
 
       const json = await resp.json();
       if(json.ok){
@@ -385,7 +379,14 @@ Declaro que li a procuração e concordo plenamente com seu conteúdo, autorizan
         msg.className="erro";
       }
     } catch(e){
-      msg.textContent="Erro ao conectar ao servidor. Verifique se ele está rodando (" + URL_SERVIDOR + ").";
+      // 4. Se deu erro (incluindo o timeout), desliga o "relógio"
+      clearTimeout(timeoutId);
+      
+      if (e.name === 'AbortError') {
+          msg.textContent="Erro: O servidor demorou muito para responder (timeout). Tente novamente.";
+      } else {
+          msg.textContent="Erro ao conectar ao servidor. Verifique se ele está rodando (" + URL_SERVIDOR + ").";
+      }
       msg.className="erro";
     }
 
