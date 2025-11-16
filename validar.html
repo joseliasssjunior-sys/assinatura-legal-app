@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <title>Validador de Assinatura</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 900px; margin: 0 auto; padding: 16px; }
+        input { width: 100%; box-sizing: border-box; padding: 8px; margin-top: 5px; }
+        button { width: 100%; padding: 10px; margin-top: 10px; }
+        pre { background: #f4f4f4; padding: 15px; border: 1px solid #ccc; white-space: pre-wrap; word-wrap: break-word; }
+        #mensagem { font-weight: bold; }
+        .ok { color: green; }
+        .erro { color: darkred; }
+    </style>
+</head>
+<body>
+    <h1>Validação de Assinatura Eletrônica</h1>
+    <p>Cole abaixo o ID da assinatura (ex: PROC-...) ou o hash SHA-256 que aparece no PDF.</p>
+
+    <label for="chave-validacao">ID da assinatura OU hash SHA-256</label>
+    <input id="chave-validacao">
+
+    <button id="btn-validar">Validar assinatura</button>
+
+    <hr>
+    
+    <h2>Resultado</h2>
+    <p id="mensagem"></p>
+    <pre id="resultado-json"></pre>
+
+    <script>
+        // --- ENDEREÇO DO SERVIDOR (MUDAR QUANDO PUBLICAR) ---
+        // const URL_SERVIDOR = "http://localhost:3000";
+        const URL_SERVIDOR = "https://SEU-NOME.onrender.com"; // <-- MUDAR PARA SEU LINK DO RENDER
+
+        document.getElementById("btn-validar").onclick = async function() {
+            const chave = document.getElementById("chave-validacao").value.trim();
+            const msgEl = document.getElementById("mensagem");
+            const jsonEl = document.getElementById("resultado-json");
+
+            msgEl.textContent = "Validando...";
+            msgEl.className = "";
+            jsonEl.textContent = "";
+
+            if (!chave) {
+                msgEl.textContent = "Por favor, insira um ID ou Hash.";
+                msgEl.className = "erro";
+                return;
+            }
+
+            try {
+                const resp = await fetch(`${URL_SERVIDOR}/validar/${encodeURIComponent(chave)}`);
+                const dados = await resp.json();
+
+                if (dados.ok) {
+                    msgEl.textContent = "Assinatura encontrada. Dados resumidos abaixo.";
+                    msgEl.className = "ok";
+                    // Formata o JSON para exibição bonita
+                    jsonEl.textContent = JSON.stringify(dados.registro, null, 2);
+                } else {
+                    msgEl.textContent = dados.mensagem || "Assinatura não encontrada.";
+                    msgEl.className = "erro";
+                }
+            } catch (e) {
+                msgEl.textContent = "Erro ao conectar ao servidor de validação.";
+                msgEl.className = "erro";
+            }
+        };
+    </script>
+</body>
+</html>
