@@ -2,19 +2,20 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
-  <title>Assinatura Eletrônica de Procuração (V3.2)</title>
+  <title>Assinatura Eletrônica de Procuração (V3.4)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.2.0/crypto-js.min.js"></script>
 
   <style>
+    /* (Seu CSS está ótimo, mantido) */
     body { font-family: Arial, sans-serif; max-width: 900px; margin: 0 auto; padding: 16px; }
     h1, h2 { text-align: center; }
     label { font-weight: bold; display: block; margin-top: 10px; }
     textarea, input, button { width: 100%; box-sizing: border-box; margin-top: 5px; }
     textarea { min-height: 80px; }
-    #texto-procuracao { min-height: 200px; }
+    #texto-procuracao { min-height: 300px; font-family: monospace; } /* Aumentei a altura */
     #signature-pad { border: 1px solid #000; width: 100%; height: 180px; touch-action: none; }
     #foto-preview { max-width: 100%; max-height: 200px; display: none; margin-top: 10px; }
     #hash-gerado { font-family: monospace; font-size: 0.9em; white-space: pre-wrap; background: #f4f4f4; padding: 8px; border: 1px solid #ccc; }
@@ -29,26 +30,27 @@
 </head>
 <body>
 
-<h1>Assinatura Eletrônica de Procuração (V3.2)</h1>
-
-<p class="small">
-  Esta página gera uma procuração com assinatura eletrônica, incluindo dados do cliente,
-  hash SHA-256, ID da assinatura, geolocalização (quando disponível), assinatura desenhada e foto.
-</p>
+<h1>Assinatura Eletrônica de Procuração (V3.4)</h1>
 
 <h2>Texto da Procuração</h2>
 <textarea id="texto-procuracao">
 PROCURAÇÃO
 
-Outorgante: (NOME DO CLIENTE), inscrito(a) no CPF nº (CPF), residente em (ENDERECO).
+Outorgante: (NOME DO CLIENTE), (NACIONALIDADE), (ESTADO CIVIL), (PROFISSAO), portador(a) do RG nº (RG), inscrito(a) no CPF nº (CPF), residente em (ENDERECO).
 
-Outorgado: (SEU NOME), advogado(a), OAB/(UF) (número), endereço profissional (endereço).
+Outorgado: Dr. Joselias Soares Sales Junior, advogado, inscrito na OAB/MA nº 26.127, CPF nº 013.002.383-30, com escritório profissional à Avenida Daniel de La Touche, nº 20, Bairro Cohama, São Luís/MA, CEP 65.074-115, e e-mail profissional joseliasjunior.adv@gmail.com.
 
-PODERES: Pelo presente instrumento, nomeia e constitui seu procurador para representá-lo(a) judicial e
-extrajudicialmente, com poderes para o foro em geral, conforme legislação.
+I – PODERES
+O OUTORGANTE nomeia e constitui seu bastante procurador o advogado acima qualificado, conferindo-lhe os poderes da cláusula “ad judicia et extra”, nos termos do artigo 105 do Código de Processo Civil, para representá-lo em ação de divórcio consensual judicial, podendo:
+ Propor, acompanhar, firmar acordos, transigir, desistir, receber e dar quitação;
+ Assinar petições, requerimentos e declarações;
+ Representá-lo perante quaisquer repartições públicas, órgãos judiciais e cartórios;
+ Solicitar certidões, documentos e praticar todos os atos necessários à formalização e homologação do divórcio;
+ Substabelecer, total ou parcialmente, com ou sem reserva de poderes.
 </textarea>
 
 <h2>Dados do Cliente</h2>
+<p class="small">Estes dados serão usados para preencher as etiquetas (ex: (NOME DO CLIENTE)) no texto acima.</p>
 
 <label>Nome completo</label>
 <input id="nome-cliente">
@@ -56,14 +58,23 @@ extrajudicialmente, com poderes para o foro em geral, conforme legislação.
 <label>CPF</label>
 <input id="cpf-cliente">
 
-<label>E-mail (cópia do PDF)</label>
-<input id="email-cliente">
-
-<label>Documento de identidade</label>
-<input id="doc-id-cliente">
-
 <label>Endereço Completo (Ex: Rua, Nº, Bairro, Cidade - UF)</label>
 <input id="endereco-cliente">
+
+<label>Nacionalidade</label>
+<input id="nacionalidade-cliente" value="Brasileiro(a)">
+
+<label>Estado Civil</label>
+<input id="estado-civil-cliente">
+
+<label>Profissão</label>
+<input id="profissao-cliente">
+
+<label>Documento de identidade (RG)</label>
+<input id="rg-cliente">
+
+<label>E-mail (cópia do PDF)</label>
+<input id="email-cliente">
 
 <h2>Concordância</h2>
 <textarea id="texto-confirmacao">
@@ -77,11 +88,9 @@ Declaro que li a procuração e concordo plenamente com seu conteúdo, autorizan
 <h2>Assinatura</h2>
 <canvas id="signature-pad"></canvas>
 <button type="button" id="limpar-assinatura">Limpar assinatura</button>
-
 <h2>Foto (opcional)</h2>
 <input type="file" id="input-foto" accept="image/*" capture="environment">
 <img id="foto-preview">
-
 <h2>Data, Hora e Geolocalização</h2>
 <div class="row">
   <div class="col">
@@ -94,7 +103,6 @@ Declaro que li a procuração e concordo plenamente com seu conteúdo, autorizan
     <textarea id="geo" readonly></textarea>
   </div>
 </div>
-
 <h2>Gerar Assinatura</h2>
 <button type="button" id="btn-gerar-pdf-enviar">Gerar PDF, enviar e baixar</button>
 <h3>Hash e ID da assinatura</h3>
@@ -103,10 +111,10 @@ Declaro que li a procuração e concordo plenamente com seu conteúdo, autorizan
 
 
 <script>
-  // --- ENDEREÇO DO SERVIDOR (V3.2 - ATUALIZADO) ---
+  // --- ENDEREÇO DO SERVIDOR (JÁ CORRIGIDO) ---
   const URL_SERVIDOR = "https://meu-assinador-legal.onrender.com"; 
   
-  // ---------------------- GERAR ID ----------------------
+  // --- (Funções de ID, Data, Geo, Canvas, Foto... mantidas) ---
   function gerarIdAssinatura(hash) {
     const d = new Date();
     const pad = n => String(n).padStart(2,"0");
@@ -115,8 +123,6 @@ Declaro que li a procuração e concordo plenamente com seu conteúdo, autorizan
     const sufixo = hash.substring(0,6).toUpperCase();
     return `PROC-${data}-${hora}-${sufixo}`;
   }
-
-  // ---------------------- DATA E HORA ----------------------
   function atualizarDataHora() {
     try {
       document.getElementById("data-hora").value = new Date().toLocaleString("pt-BR", { timeZone: 'America/Sao_Paulo' });
@@ -124,8 +130,6 @@ Declaro que li a procuração e concordo plenamente com seu conteúdo, autorizan
       document.getElementById("data-hora").value = new Date().toLocaleString("pt-BR");
     }
   }
-  
-  // ---------------------- GEO ----------------------
   let ultimaGeo = null;
   function obterGeo() {
     const campo = document.getElementById("geo");
@@ -152,10 +156,7 @@ Declaro que li a procuração e concordo plenamente com seu conteúdo, autorizan
       }
     );
   };
-
-  // ---------------------- ASSINATURA (CANVAS) ----------------------
   let canvas, ctx, desenhando = false, ultimo = {x:0,y:0};
-  
   function ajustarCanvas() {
     if (!canvas) return; 
     canvas.width = canvas.clientWidth;
@@ -163,22 +164,15 @@ Declaro que li a procuração e concordo plenamente com seu conteúdo, autorizan
     ctx.lineWidth = 2;
     ctx.lineCap = "round";
   }
-  
   function posEvt(e){
     const r = canvas.getBoundingClientRect();
     if(e.touches) return {x:e.touches[0].clientX-r.left,y:e.touches[0].clientY-r.top};
     return {x:e.clientX-r.left,y:e.clientY-r.top};
   }
-  
-  function iniciarDesenho(e) { 
-    desenhando = true; 
-    ultimo = posEvt(e); 
-  }
-  
+  function iniciarDesenho(e) { desenhando = true; ultimo = posEvt(e); }
   function desenhar(e) {
     if(!desenhando) return;
     if (e.touches) e.preventDefault(); 
-    
     const p = posEvt(e);
     ctx.beginPath();
     ctx.moveTo(ultimo.x,ultimo.y);
@@ -186,16 +180,10 @@ Declaro que li a procuração e concordo plenamente com seu conteúdo, autorizan
     ctx.stroke();
     ultimo = p;
   }
-  
-  function pararDesenho() { 
-    desenhando = false; 
-  }
-  
+  function pararDesenho() { desenhando = false; }
   function limparAssinatura() {
     ctx.clearRect(0,0,canvas.width,canvas.height);
   }
-
-  // ---------------------- FOTO ----------------------
   let fotoSelecionada=null;
   function préviaFoto(e){
     const file=e.target.files[0];
@@ -206,47 +194,60 @@ Declaro que li a procuração e concordo plenamente com seu conteúdo, autorizan
     r.readAsDataURL(file);
   };
 
-  // ---------------------- MONTAR DADOS (Atualizado V3.1) ----------------------
+  // ---------------------- MONTAR DADOS (Atualizado V3.4) ----------------------
   function montarDados(){
+    // 1. Pega os textos do molde e dos campos
     const procMolde = document.getElementById("texto-procuracao").value.trim();
-    const nome = document.getElementById("nome-cliente").value.trim();
-    const cpf = document.getElementById("cpf-cliente").value.trim();
-    const email = document.getElementById("email-cliente").value.trim();
-    const doc = document.getElementById("doc-id-cliente").value.trim();
-    const endereco = document.getElementById("endereco-cliente").value.trim();
     const confirm = document.getElementById("texto-confirmacao").value.trim();
     const ok = document.getElementById("checkbox-concordo").checked;
     const dataHora = document.getElementById("data-hora").value;
 
+    // 2. Pega os dados do cliente
+    const nome = document.getElementById("nome-cliente").value.trim();
+    const cpf = document.getElementById("cpf-cliente").value.trim();
+    const email = document.getElementById("email-cliente").value.trim();
+    const rg = document.getElementById("rg-cliente").value.trim();
+    const endereco = document.getElementById("endereco-cliente").value.trim();
+    const nacionalidade = document.getElementById("nacionalidade-cliente").value.trim();
+    const estadoCivil = document.getElementById("estado-civil-cliente").value.trim();
+    const profissao = document.getElementById("profissao-cliente").value.trim();
+    
+    // 3. Validação (Checagem de erros)
     const erros=[];
-    if(!nome || !cpf || !endereco) erros.push("Nome, CPF e Endereço são obrigatórios.");
+    if(!nome || !cpf || !endereco || !nacionalidade || !estadoCivil || !profissao || !rg) {
+        erros.push("Todos os campos de 'Dados do Cliente' são obrigatórios.");
+    }
     if(!ok) erros.push("É necessário marcar a concordância.");
 
     if(erros.length) return {erro:erros.join("\n")};
     
+    // --- ### A MÁGICA DA SUBSTITUIÇÃO (V3.4) ### ---
+    // Agora substituímos todas as 7 etiquetas do cliente
+    
     let textoProcuracaoFinal = procMolde
-      .replace(/\(NOME DO CLIENTE\)/g, nome)
+      .replace(/\(NOME DO CLIENTE\)/g, nome.toUpperCase()) // Coloca o nome em maiúsculo
       .replace(/\(CPF\)/g, cpf)
-      .replace(/\(ENDERECO\)/g, endereco);
-      
-    // (Adicione seus dados fixos aqui)
-    // .replace(/\(SEU NOME\)/g, "Dr. Joselias Soares Sales Junior")
-    // .replace(/\(OAB\/\(UF\) \(número\)\)/g, "OAB/MA 20.127")
+      .replace(/\(ENDERECO\)/g, endereco)
+      .replace(/\(NACIONALIDADE\)/g, nacionalidade)
+      .replace(/\(ESTADO CIVIL\)/g, estadoCivil)
+      .replace(/\(PROFISSAO\)/g, profissao)
+      .replace(/\(RG\)/g, rg);
 
     return {
-      textoProcuracao: textoProcuracaoFinal,
+      textoProcuracao: textoProcuracaoFinal, // O texto JÁ PREENCHIDO
       nomeCliente: nome,
       cpfCliente: cpf,
       emailCliente: email,
-      docIdCliente: doc,
+      docIdCliente: rg, // Atualizado para RG
       enderecoCliente: endereco,
       textoConfirmacao: confirm,
       dataHora: dataHora,
       geo: ultimaGeo
+      // (Envia todos os dados brutos para o JSON de qualquer forma)
     };
   }
 
-  // ---------------------- GERAR PDF / HASH / ENVIAR (Atualizado V3.1) ----------------------
+  // ---------------------- GERAR PDF / HASH / ENVIAR (Atualizado V3.4) ----------------------
   async function gerarPDFEnviar(){
     const msg=document.getElementById("mensagens");
     const hashBox=document.getElementById("hash-gerado");
@@ -290,7 +291,13 @@ Declaro que li a procuração e concordo plenamente com seu conteúdo, autorizan
     
     function wrap(text){ 
         if (!text) return [""];
-        return doc.splitTextToSize(text, larguraLinha); 
+        // Esta função agora também lida com as quebras de linha (\n) do seu molde
+        const linhasDoMolde = text.split('\n');
+        let linhasFinais = [];
+        for (const linha of linhasDoMolde) {
+            linhasFinais = linhasFinais.concat(doc.splitTextToSize(linha, larguraLinha));
+        }
+        return linhasFinais;
     }
     
     function blocoDeTexto(titulo, texto, y_pos) {
@@ -302,7 +309,9 @@ Declaro que li a procuração e concordo plenamente com seu conteúdo, autorizan
         doc.setFont(undefined, 'normal');
         const linhas = wrap(texto);
         doc.text(linhas, margemEsquerda, y_pos);
-        return y_pos + (linhas.length * 5) + 2;
+        // Retorna a nova posição Y (5mm para cada linha)
+        // Aumentei o espaçamento para 6mm para melhor leitura
+        return y_pos + (linhas.length * 6) + 2;
     }
 
     y = blocoDeTexto("Data e hora:", dados.dataHora, y);
@@ -356,6 +365,10 @@ Declaro que li a procuração e concordo plenamente com seu conteúdo, autorizan
           cpfCliente: dados.cpfCliente,
           docIdCliente: dados.docIdCliente,
           enderecoCliente: dados.enderecoCliente,
+          // (Todos os dados extras que o servidor pode querer)
+          nacionalidade: nacionalidade,
+          estadoCivil: estadoCivil,
+          profissao: profissao,
           hash,
           dataHora: dados.dataHora,
           geo: dados.geo,
@@ -381,23 +394,13 @@ Declaro que li a procuração e concordo plenamente com seu conteúdo, autorizan
   
   // --- INICIAR TUDO QUANDO A PÁGINA CARREGAR ---
   window.onload = function() {
-    // Ligar Data/Hora
     atualizarDataHora();
     setInterval(atualizarDataHora, 1000);
-    
-    // Ligar Botão GEO
     document.getElementById("btn-geo").onclick = obterGeo;
-    
-    // Ligar Botão Limpar Assinatura
     document.getElementById("limpar-assinatura").onclick = limparAssinatura;
-    
-    // Ligar Upload de Foto
     document.getElementById("input-foto").onchange = préviaFoto;
-    
-    // Ligar Botão Principal
     document.getElementById("btn-gerar-pdf-enviar").onclick = gerarPDFEnviar;
     
-    // Ligar Canvas
     canvas = document.getElementById("signature-pad");
     ctx = canvas.getContext("2d");
     ajustarCanvas();
@@ -406,7 +409,6 @@ Declaro que li a procuração e concordo plenamente com seu conteúdo, autorizan
     canvas.addEventListener("mousedown", iniciarDesenho);
     canvas.addEventListener("mousemove", desenhar);
     window.addEventListener("mouseup", pararDesenho);
-    
     canvas.addEventListener("touchstart", iniciarDesenho);
     canvas.addEventListener("touchmove", desenhar);
     canvas.addEventListener("touchend", pararDesenho);
