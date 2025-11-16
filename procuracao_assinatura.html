@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Assinatura Eletrônica de Procuração (V3.1)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.2.0/crypto-js.min.js"></script>
+
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 900px; margin: 0 auto; padding: 16px; }
+    h1, h2 { text-align: center; }
+    label { font-weight: bold; display: block; margin-top: 10px; }
+    textarea, input, button { width: 100%; box-sizing: border-box; margin-top: 5px; }
+    textarea { min-height: 80px; }
+    #texto-procuracao { min-height: 200px; }
+    #signature-pad { border: 1px solid #000; width: 100%; height: 180px; touch-action: none; }
+    #foto-preview { max-width: 100%; max-height: 200px; display: none; margin-top: 10px; }
+    #hash-gerado { font-family: monospace; font-size: 0.9em; white-space: pre-wrap; background: #f4f4f4; padding: 8px; border: 1px solid #ccc; }
+    .row { display: flex; gap: 10px; flex-wrap: wrap; }
+    .col { flex: 1; min-width: 200px; }
+    .small { font-size: 0.85em; color: #555; }
+    #mensagens { margin-top: 10px; font-size: 0.9em; white-space: pre-wrap; }
+    .ok { color: green; }
+    .erro { color: darkred; }
+    button { padding: 8px; margin-top: 8px; }
+  </style>
+</head>
+<body>
+
+<h1>Assinatura Eletrônica de Procuração (V3.1)</h1>
+
+<p class="small">
+  Esta página gera uma procuração com assinatura eletrônica, incluindo dados do cliente,
+  hash SHA-256, ID da assinatura, geolocalização (quando disponível), assinatura desenhada e foto.
+</p>
+
+<h2>Texto da Procuração</h2>
+<textarea id="texto-procuracao">
+PROCURAÇÃO
+
+Outorgante: (NOME DO CLIENTE), inscrito(a) no CPF nº (CPF), residente em (ENDERECO).
+
+Outorgado: (SEU NOME), advogado(a), OAB/(UF) (número), endereço profissional (endereço).
+
+PODERES: Pelo presente instrumento, nomeia e constitui seu procurador para representá-lo(a) judicial e
+extrajudicialmente, com poderes para o foro em geral, conforme legislação.
+</textarea>
+
+<h2>Dados do Cliente</h2>
+
+<label>Nome completo</label>
+<input id="nome-cliente">
+
+<label>CPF</label>
+<input id="cpf-cliente">
+
+<label>E-mail (cópia do PDF)</label>
+<input id="email-cliente">
+
+<label>Documento de identidade</label>
+<input id="doc-id-cliente">
+
+<label>Endereço Completo (Ex: Rua, Nº, Bairro, Cidade - UF)</label>
+<input id="endereco-cliente">
+
+<h2>Concordância</h2>
+<textarea id="texto-confirmacao">
+Declaro que li a procuração e concordo plenamente com seu conteúdo, autorizando o uso desta assinatura eletrônica.
+</textarea>
+<label>
+  <input type="checkbox" id="checkbox-concordo">
+  Li e concordo com a procuração e com a declaração acima
+</label>
+
+<h2>Assinatura</h2>
+<canvas id="signature-pad"></canvas>
+<button type="button" id="limpar-assinatura">Limpar assinatura</button>
+
+<h2>Foto (opcional)</h2>
+<input type="file" id="input-foto" accept="image/*" capture="environment">
+<img id="foto-preview">
+
+<h2>Data, Hora e Geolocalização</h2>
+<div class="row">
+  <div class="col">
+    <label>Data e hora</label>
+    <input id="data-hora" readonly>
+  </div>
+  <div class="col">
+    <label>Geolocalização</label>
+    <button type="button" id="btn-geo">Capturar localização</button>
+    <textarea id="geo" readonly></textarea>
+  </div>
+</div>
+
+<h2>Gerar Assinatura</h2>
+<button type="button" id="btn-gerar-pdf-enviar">Gerar PDF, enviar e baixar</button>
+<h3>Hash e ID da assinatura</h3>
+<div id="hash-gerado"></div>
+<div id="mensagens"></div>
+
+
+<script>
+  // --- ENDEREÇO DO SERVIDOR (MUDAR QUANDO PUBLICAR) ---
+  // const URL_SERVIDOR = "http://localhost:3000";
+  const URL_SERVIDOR = "https://SEU-NOME.onrender.com"; // <-- MUDAR PARA SEU LINK DO RENDER
+  
+  // ---------------------- GERAR ID ----------------------
+  function gerarIdAssinatura(hash) {
+    const d = new Date();
+    const pad = n => String(n).padStart(2,"0");
+    const data = `${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}`;
+    const hora = `${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
+    const sufixo = hash.substring(0,6).toUpperCase();
+    return `PROC-${data}-${hora}-${sufixo}`;
+  }
+
+  // ---------------------- DATA E HORA ----------------------
+  function atualizarDataHora() {
+    document.getElementById("data-hora").value = new Date().toLocaleString("pt-BR", { timeZone: 'America/Sao_Paulo' });
+  }
+  atualizarDataHora();
+  setInterval(atualizarDataHora, 1000);
+
+  // ---------------------- GEO ----------------------
+  let ultimaGeo = null;
+  document.getElementById("btn-geo").onclick = function() {
+    const campo = document.getElementById("geo");
+    campo.value = "Obtendo localização...";
+    if (!navigator.geolocation) {
+      campo.value = "Geolocalização não suportada neste navegador.";
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      pos => {
+        ultimaGeo = {
+          latitude: pos.coords.latitude,
+          longitude: pos.coords.longitude,
+          precisao_metros: pos.coords.accuracy
+        };
+        campo.value =
+          "Latitude: " + ultimaGeo.latitude + "\n" +
+          "Longitude: " + ultimaGeo.longitude + "\n" +
+          "Precisão: " + ultimaGeo.precisao_metros + " m";
+      },
+      err => { campo.value = "Erro: " + err.message; }
+    );
+  };
+
+  // ---------------------- ASSINATURA (CANVAS) ----------------------
+  const canvas = document.getElementById("signature-pad");
+  const ctx = canvas.getContext("2d");
+  function ajustarCanvas() {
+    canvas.width = canvas.clientWidth;
+    canvas.height = canvas.clientHeight;
+    ctx.lineWidth = 2;
+    ctx.lineCap = "round";
+  }
+  window.onresize = ajustarCanvas;
+  ajustarCanvas();
+  let desenhando = false, ultimo = {x:0,y:0};
+  function posEvt(e){
+    const r = canvas.getBoundingClientRect();
+    if(e.touches) return {x:e.touches[0].clientX-r.left,y:e.touches[0].clientY-r.top};
+    return {x:e.clientX-r.left,y:e.clientY-r.top};
+  }
+  canvas.onmousedown = e => { desenhando = true; ultimo = posEvt(e); };
+  canvas.onmousemove = e => {
+    if(!desenhando) return;
+    const p = posEvt(e);
+    ctx.beginPath();
+    ctx.moveTo(ultimo.x,ultimo.y);
+    ctx.lineTo(p.x,p.y);
+    ctx.stroke();
+    ultimo = p;
+  };
+  window.onmouseup = () => desenhando=false;
+  canvas.ontouchstart = e => { desenhando=true; ultimo=posEvt(e); };
+  canvas.ontouchmove = e => {
+    if(!desenhando) return;
+    e.preventDefault();
+    const p = posEvt(e);
+    ctx.beginPath();
+    ctx.moveTo(ultimo.x,ultimo.y);
+    ctx.lineTo(p.x,p.y);
+    ctx.stroke();
+    ultimo=p;
+  };
+  canvas.ontouchend = ()=>desenhando=false;
+  document.getElementById("limpar-assinatura").onclick = ()=>ctx.clearRect(0,0,canvas.width,canvas.height);
+
+  // ---------------------- FOTO ----------------------
+  let fotoSelecionada=null;
+  document.getElementById("input-foto").onchange=function(e){
+    const file=e.target.files[0];
+    const prev=document.getElementById("foto-preview");
+    if(!file){ fotoSelecionada=null; prev.style.display="none"; return; }
+    const r=new FileReader();
+    r.onload=function(ev){ fotoSelecionada=ev.target.result; prev.src=fotoSelecionada; prev.style.display="block"; };
+    r.readAsDataURL(file);
+  };
+
+  // ---------------------- MONTAR DADOS (Atualizado V3.1) ----------------------
+  function montarDados(){
+    // 1. Pega os textos
+    const procMolde = document.getElementById("texto-procuracao").value.trim();
+    const nome = document.getElementById("nome-cliente").value.trim();
+    const cpf = document.getElementById("cpf-cliente").value.trim();
+    const email = document.getElementById("email-cliente").value.trim();
+    const doc = document.getElementById("doc-id-cliente").value.trim();
+    // ### CORREÇÃO 2: Lendo o novo campo de endereço ###
+    const endereco = document.getElementById("endereco-cliente").value.trim();
+    
+    const confirm = document.getElementById("texto-confirmacao").value.trim();
+    const ok = document.getElementById("checkbox-concordo").checked;
+    const dataHora = document.getElementById("data-hora").value;
+
+    const erros=[];
+    if(!nome || !cpf || !endereco) erros.push("Nome, CPF e Endereço são obrigatórios.");
+    if(!ok) erros.push("É necessário marcar a concordância.");
+
+    if(erros.length) return {erro:erros.join("\n")};
+    
+    // --- ### CORREÇÃO 3: A MÁGICA DA SUBSTITUIÇÃO ### ---
+    // Antes de salvar, vamos fazer o "Localizar e Substituir"
+    
+    let textoProcuracaoFinal = procMolde
+      .replace("(NOME DO CLIENTE)", nome)
+      .replace("(CPF)", cpf)
+      .replace("(endereço)", endereco); // Substitui o primeiro (endereço)
+      
+    // (Adicione seus dados fixos aqui se quiser)
+    // .replace("(SEU NOME)", "Dr. Joselias Soares Sales Junior")
+    // .replace("(OAB/(UF) (número))", "OAB/MA 20.127")
+
+    return {
+      textoProcuracao: textoProcuracaoFinal, // Enviamos o texto JÁ PREENCHIDO!
+      nomeCliente: nome,
+      cpfCliente: cpf,
+      emailCliente: email,
+      docIdCliente: doc,
+      enderecoCliente: endereco, // Adicionamos para salvar no JSON
+      textoConfirmacao: confirm,
+      dataHora: dataHora,
+      geo: ultimaGeo
+    };
+  }
+
+  // ---------------------- GERAR PDF / HASH / ENVIAR (Atualizado V3.1) ----------------------
+  document.getElementById("btn-gerar-pdf-enviar").onclick = async function(){
+
+    const msg=document.getElementById("mensagens");
+    const hashBox=document.getElementById("hash-gerado");
+    msg.textContent=""; msg.className="";
+    hashBox.textContent="";
+
+    const dados=montarDados();
+    if(dados.erro){ msg.textContent=dados.erro; msg.className="erro"; return; }
+
+    const baseHash = {
+      textoProcuracao: dados.textoProcuracao,
+      nomeCliente: dados.nomeCliente,
+      cpfCliente: dados.cpfCliente,
+      emailCliente: dados.emailCliente,
+      docIdCliente: dados.docIdCliente,
+      textoConfirmacao: dados.textoConfirmacao,
+      dataHora: dados.dataHora,
+      geo: dados.geo
+    };
+
+    const conteudoHash = JSON.stringify(baseHash);
+    const hash = CryptoJS.SHA256(conteudoHash).toString();
+    const idAssinatura = gerarIdAssinatura(hash);
+
+    hashBox.textContent =
+      "ID da assinatura: " + idAssinatura + "\n\n" +
+      "HASH SHA-256:\n" + hash;
+
+    const assinaturaBase64 = canvas.toDataURL("image/png");
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ unit:"mm", format:"a4" });
+
+    // --- ### CORREÇÃO 4: Lógica de Layout do PDF ### ---
+    doc.setFontSize(14);
+    let y = 15;
+    doc.text("PROCURAÇÃO - ASSINATURA ELETRÔNICA", 105, y, { align: 'center' });
+    y += 10;
+
+    doc.setFontSize(10);
+    const margemEsquerda = 15;
+    const larguraLinha = 180; // (210mm da A4 - 30mm de margem total)
+    
+    function wrap(text){ 
+        if (!text) return [""];
+        return doc.splitTextToSize(text, larguraLinha); 
+    }
+    
+    function blocoDeTexto(titulo, texto, y_pos) {
+        if (titulo) {
+            doc.setFont(undefined, 'bold');
+            doc.text(titulo, margemEsquerda, y_pos);
+            y_pos += 6;
+        }
+        doc.setFont(undefined, 'normal');
+        const linhas = wrap(texto);
+        doc.text(linhas, margemEsquerda, y_pos);
+        // Retorna a nova posição Y (5mm para cada linha)
+        return y_pos + (linhas.length * 5) + 2; // +2mm de espaço extra
+    }
+
+    y = blocoDeTexto("Data e hora:", dados.dataHora, y);
+    y = blocoDeTexto("ID da assinatura:", idAssinatura, y);
+    
+    if(dados.geo) {
+        y = blocoDeTexto("Localização (aprox.):", `Lat: ${dados.geo.latitude}, Long: ${dados.geo.longitude} (Precisão: ${dados.geo.precisao_metros}m)`, y);
+    } else {
+        y = blocoDeTexto("Localização (aprox.):", "Não capturada.", y);
+    }
+    y += 5; // Espaço extra
+    
+    // --- O TEXTO DA PROCURAÇÃO (JÁ PREENCHIDO) ---
+    y = blocoDeTexto(null, dados.textoProcuracao, y);
+    y += 5; 
+
+    // --- DECLARAÇÃO ---
+    y = blocoDeTexto(null, dados.textoConfirmacao, y);
+    y += 15; 
+
+    // --- ASSINATURA E FOTO ---
+    
+    // Verifica se precisa de uma nova página
+    if (y > 220) { 
+        doc.addPage(); 
+        y = 15;
+    }
+
+    doc.setFont(undefined, 'bold');
+    doc.text("Assinatura desenhada:", margemEsquerda, y);
+    y += 5;
+    doc.addImage(assinaturaBase64,"PNG", margemEsquerda, y, 80, 30);
+    y += 40;
+
+    if(fotoSelecionada){
+      doc.text("Foto anexada:", margemEsquerda, y);
+      y += 5;
+      // Verifica se a foto cabe na página
+      if (y > 230) { doc.addPage(); y = 15; }
+      doc.addImage(fotoSelecionada,"JPEG", margemEsquerda, y, 50, 50);
+    } else {
+      doc.text("Nenhuma foto anexada.", margemEsquerda, y);
+    }
+
+    // Adiciona o Hash no rodapé da última página
+    doc.setFontSize(8);
+    doc.text(`Hash SHA-256 do ato: ${hash}`, margemEsquerda, 280);
+
+    // (O resto do código de enviar para o servidor está perfeito)
+    const pdfBase64Uri = doc.output("datauristring");
+    const pdfBase64 = pdfBase64Uri.split(",")[1];
+
+    msg.textContent="Enviando PDF ao servidor...";
+    try{
+      // Usamos a variável URL_SERVIDOR que definimos no topo
+      const resp = await fetch(`${URL_SERVIDOR}/enviar-email`,{
+        method:"POST",
+        headers:{ "Content-Type":"application/json" },
+        body:JSON.stringify({
+          pdfBase64,
+          nomeCliente: dados.nomeCliente,
+          emailCliente: dados.emailCliente,
+          cpfCliente: dados.cpfCliente,
+          docIdCliente: dados.docIdCliente,
+          enderecoCliente: dados.enderecoCliente, // Enviando o endereço
+          hash,
+          dataHora: dados.dataHora,
+          geo: dados.geo,
+          idAssinatura
+        })
+      });
+
+      const json = await resp.json();
+      if(json.ok){
+        msg.textContent="PDF enviado! Será baixado agora.";
+        msg.className="ok";
+      } else {
+        msg.textContent="Erro ao enviar PDF: " + (json.error || json.erro || "Erro desconhecido.");
+        msg.className="erro";
+      }
+    } catch(e){
+      msg.textContent="Erro ao conectar ao servidor. Verifique se ele está rodando (" + URL_SERVIDOR + ").";
+      msg.className="erro";
+    }
+
+    doc.save("procuracao_assinada.pdf");
+  };
+</script>
+
+</body>
+</html>
